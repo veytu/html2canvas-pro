@@ -254,29 +254,61 @@ export class DocumentCloner {
     }
 
     createVideoClone(video: HTMLVideoElement): HTMLCanvasElement {
-        const canvas = video.ownerDocument.createElement('canvas');
-
-        canvas.width = video.offsetWidth;
-        canvas.height = video.offsetHeight;
-        const ctx = canvas.getContext('2d');
-
-        try {
-            if (ctx) {
-                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                if (!this.options.allowTaint) {
-                    ctx.getImageData(0, 0, canvas.width, canvas.height);
-                }
-            }
-            return canvas;
-        } catch (e) {
-            this.context.logger.info(`Unable to clone video as it is tainted`, video);
-        }
-
-        const blankCanvas = video.ownerDocument.createElement('canvas');
-
-        blankCanvas.width = video.offsetWidth;
-        blankCanvas.height = video.offsetHeight;
-        return blankCanvas;
+        var canvas = video.ownerDocument.createElement('canvas');
+          canvas.width = video.offsetWidth;
+          canvas.height = video.offsetHeight;
+          var sx = 0, sy = 0, sWidth = video.videoWidth, // video.offsetWidth,
+          sHeight = video.videoHeight, // video.offsetHeight,
+          dx = 0, dy = 0, dWidth = canvas.width, dHeight = canvas.height;
+          var scaleX = dWidth / sWidth;
+          var scaleY = dHeight / sHeight;
+          if (video.style.objectFit === 'cover') {
+              var scale = Math.max(scaleX, scaleY);
+              sx = (sWidth - dWidth / scale) / 2;
+              sy = (sHeight - dHeight / scale) / 2;
+              if (scaleX > scaleY) {
+                  // 宽度撑满，高度截取
+                  sHeight = dHeight / scale;
+              }
+              else {
+                  // 高度撑满，宽度截取
+                  sWidth = dWidth / scale;
+              }
+              this.context.logger.info('video1', video.style.objectFit, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+          }
+          else if (video.style.objectFit === 'contain') {
+              var scale = Math.min(scaleX, scaleY);
+              dx = (dWidth - sWidth * scale) / 2;
+              dy = (dHeight - sHeight * scale) / 2;
+              if (scaleX > scaleY) {
+                  // 高度撑满，宽度留白
+                  dWidth = sWidth * scale;
+              }
+              else {
+                  // 宽度撑满，高度留白
+                  dHeight = sHeight * scale;
+              }
+              this.context.logger.info('video2', video.style.objectFit, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+          }
+          var ctx = canvas.getContext('2d');
+          try {
+              if (ctx) {
+                  // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+                  ctx.drawImage(video, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight);
+                  if (!this.options.allowTaint) {
+                      // getImageData(sx, sy, sw, sh)
+                      ctx.getImageData(0, 0, dWidth, dHeight);
+                  }
+              }
+              return canvas;
+          }
+          catch (e) {
+              this.context.logger.info("Unable to clone video as it is tainted", video);
+          }
+          var blankCanvas = video.ownerDocument.createElement('canvas');
+          blankCanvas.width = video.offsetWidth;
+          blankCanvas.height = video.offsetHeight;
+          return blankCanvas;
     }
 
     appendChildNode(clone: HTMLElement | SVGElement, child: Node, copyStyles: boolean): void {
